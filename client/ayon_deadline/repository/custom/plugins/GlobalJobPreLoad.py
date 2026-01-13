@@ -644,6 +644,7 @@ def _extract_environments(
         "AYON_API_KEY": ayon_api_key,
         "AYON_STUDIO_BUNDLE_NAME": ayon_studio_bundle_name,
         "AYON_BUNDLE_NAME": ayon_bundle_name,
+        "AYON_DEADLINE_JOBID": job.JobId,
     }
 
     for key in ("AYON_USE_STAGING", "AYON_IN_TESTS"):
