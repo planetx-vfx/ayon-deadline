@@ -1,3 +1,4 @@
+import getpass
 import os
 from dataclasses import dataclass, field, asdict
 import pyblish.api
@@ -12,7 +13,7 @@ from ayon_deadline import abstract_submit_deadline
 @dataclass
 class DeadlinePluginInfo:
     ProjectFile: str = field(default=None)
-    EditorExecutableName: str = field(default=None)
+    Executable: str = field(default=None)
     EngineVersion: str = field(default=None)
     CommandLineMode: str = field(default=True)
     OutputFilePath: str = field(default=None)
@@ -75,31 +76,23 @@ class UnrealSubmitDeadline(
     def get_plugin_info(self):
         deadline_plugin_info = DeadlinePluginInfo()
 
-        render_path = self._instance.data["expectedFiles"][0]
-        self._instance.data["outputDir"] = os.path.dirname(render_path)
+        expected_file = Path(self._instance.data["expectedFiles"][0]).resolve()
+        self._instance.data["outputDir"] = expected_file.parent.as_posix()
         self._instance.context.data["version"] = 1  #TODO
 
-        render_dir = os.path.dirname(render_path)
         file_name = self._instance.data["file_names"][0]
-        render_path = os.path.join(render_dir, file_name)
+        render_path = (expected_file.parent / file_name).resolve()
 
         deadline_plugin_info.ProjectFile = self.scene_path
-        deadline_plugin_info.Output = render_path.replace("\\", "/")
-
-        deadline_plugin_info.EditorExecutableName = "UnrealEditor-Cmd.exe"
+        deadline_plugin_info.Output = render_path.as_posix()
+        deadline_plugin_info.Executable = self._get_executable()
         deadline_plugin_info.EngineVersion = self._instance.data["app_version"]
-        master_level = self._instance.data["master_level"]
-        render_queue_path = self._instance.data["render_queue_path"]
-        cmd_args = [
-            master_level,
-            "-game",
-            f"-MoviePipelineConfig={render_queue_path}",
-            "-windowed",
-            "-Log",
-            "-StdOut",
-            "-allowStdOutLogVerbosity",
-            "-Unattended",
-        ]
+
+        cmd_args = ['-execcmds="py from ayon_unreal.api import rendering_remote; rendering_remote.main()"']
+        if work_mrq := self._instance.data["work_mrq"]:
+            manifest: str = Path(work_mrq).as_posix()
+            cmd_args.append(f"-MRQManifest={manifest}")
+        cmd_args.append("-MRQInstance")
         self.log.debug(f"cmd-args::{cmd_args}")
         deadline_plugin_info.CommandLineArguments = " ".join(cmd_args)
 
@@ -202,3 +195,11 @@ class UnrealSubmitDeadline(
         deadline_plugin_info.PerforceStream = stream
         deadline_plugin_info.PerforceChangelist = change_list_id
         deadline_plugin_info.PerforceGamePath = unreal_project_hierarchy
+
+    def _get_executable(self):
+        """Returns path to Unreal executable.
+        """
+        # todo: get unreal version
+        curr_ue = Path(sys.executable).resolve()
+        ue_cmd_exe = curr_ue.parent / "UnrealEditor-Cmd.exe"
+        return ue_cmd_exe.as_posix()
