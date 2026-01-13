@@ -43,9 +43,21 @@ class UnrealSubmitDeadline(
 
     def get_job_info(self, job_info=None):
         instance = self._instance
+        context = self._instance.context
 
         job_info.BatchName = self._get_batch_name()
         job_info.Plugin = "UnrealEngine5"
+        job_info.Name = instance.data["name"]
+        job_info.Plugin = "UnrealEngine5"
+        job_info.UserName = context.data.get(
+            "deadlineUser", getpass.getuser())
+        job_info.CommandLineMode = False    # enables RPC
+
+        # adds deadline server url as $AYON_DEADLINE_URL
+        dl_server_url = instance.data["deadline"]["url"]
+        job_info_env = {"AYON_DEADLINE_URL": dl_server_url}
+        job_info.EnvironmentKeyValue.update(job_info_env)
+
 
         # already collected explicit values for rendered Frames
         if (
