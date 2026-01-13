@@ -1,12 +1,11 @@
 import getpass
-import os
+import sys
 from dataclasses import dataclass, field, asdict
-import pyblish.api
 from datetime import datetime
 from pathlib import Path
 
+import pyblish.api
 from ayon_core.lib import is_in_tests
-
 from ayon_deadline import abstract_submit_deadline
 
 
@@ -20,9 +19,6 @@ class DeadlinePluginInfo:
     Output: str = field(default=None)
     StartupDirectory: str = field(default=None)
     CommandLineArguments: str = field(default=None)
-    PerforceStream: str = field(default=None)
-    PerforceChangelist: str = field(default=None)
-    PerforceGamePath: str = field(default=None)
 
 
 class UnrealSubmitDeadline(
@@ -96,23 +92,6 @@ class UnrealSubmitDeadline(
         self.log.debug(f"cmd-args::{cmd_args}")
         deadline_plugin_info.CommandLineArguments = " ".join(cmd_args)
 
-        # if Perforce - triggered by active `changelist_metadata` instance!!
-        collected_perforce = self._get_perforce_info()
-        if collected_perforce:
-            perforce_data = (
-                self._instance.context.data.get("perforce")
-                or self._instance.context.data.get("version_control")
-            )
-            workspace_dir = perforce_data["workspace_dir"]
-            stream = perforce_data["stream"]
-            self._update_perforce_data(
-                self.scene_path,
-                workspace_dir,
-                stream,
-                collected_perforce["change_info"]["change"],
-                deadline_plugin_info,
-            )
-
         return asdict(deadline_plugin_info)
 
     def from_published_scene(self, replace_in_path=True):
@@ -130,71 +109,15 @@ class UnrealSubmitDeadline(
 
         For automatic tests it adds timestamp, for Perforce driven change list
         """
-        batch_name = os.path.basename(self._instance.data["source"])
+        batch_name = Path(self._instance.data["source"]).stem
         if is_in_tests():
             batch_name += datetime.now().strftime("%d%m%Y%H%M%S")
-        collected_perforce = self._get_perforce_info()
-        if collected_perforce:
-            change = (collected_perforce["change_info"]["change"])
-            batch_name = f"{batch_name}_{change}"
+
+        if p4_data := self._instance.context.data.get("perforce"):
+            batch_name += f" - Stream {p4_data['stream']}"
+            if cl_num := p4_data.get("changelist"):
+                batch_name += f"@{cl_num}"
         return batch_name
-
-    def _get_perforce_info(self):
-        """Look if changelist_metadata is published to get change list info.
-
-        Context perforce dict contains universal connection info, instance
-        perforce contains detail about change list.
-        """
-        change_list_version = {}
-        for inst in self._instance.context:
-            # get change info from `changelist_metadata` instance
-            inst_data = inst.data
-            change_list_version = (
-                inst_data.get("perforce")
-                or inst_data.get("version_control")  # backward compatibility
-            )
-            if change_list_version:
-                context_version = (
-                    self._instance.context.data.get("perforce")
-                    or self._instance.context.data.get("version_control")
-                )
-                change_list_version.update(context_version)
-                break
-        return change_list_version
-
-    def _update_perforce_data(
-        self,
-        scene_path,
-        workspace_dir,
-        stream,
-        change_list_id,
-        deadline_plugin_info,
-    ):
-        """Adds Perforce metadata which causes DL pre job to sync to change.
-
-        It triggers only in presence of activated `changelist_metadata`
-        instance, which materialize info about commit. Artists could return
-        to any published commit and re-render if they choose.
-        `changelist_metadata` replaces `workfile` as there are no versioned
-        Unreal projects (because of size).
-        """
-        # normalize paths, c:/ vs C:/
-        scene_path = str(Path(scene_path).resolve())
-        workspace_dir = str(Path(workspace_dir).resolve())
-
-        unreal_project_file_name = os.path.basename(scene_path)
-
-        unreal_project_hierarchy = self.scene_path.replace(workspace_dir, "")
-        unreal_project_hierarchy = (
-            unreal_project_hierarchy.replace(unreal_project_file_name, ""))
-        # relative path from workspace dir to last folder
-        unreal_project_hierarchy = unreal_project_hierarchy.strip("\\")
-
-        deadline_plugin_info.ProjectFile = unreal_project_file_name
-
-        deadline_plugin_info.PerforceStream = stream
-        deadline_plugin_info.PerforceChangelist = change_list_id
-        deadline_plugin_info.PerforceGamePath = unreal_project_hierarchy
 
     def _get_executable(self):
         """Returns path to Unreal executable.
