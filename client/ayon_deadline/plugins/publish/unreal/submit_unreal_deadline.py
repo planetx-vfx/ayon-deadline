@@ -21,9 +21,7 @@ class DeadlinePluginInfo:
     CommandLineArguments: str = field(default=None)
 
 
-class UnrealSubmitDeadline(
-    abstract_submit_deadline.AbstractSubmitDeadline
-):
+class UnrealSubmitDeadline(abstract_submit_deadline.AbstractSubmitDeadline):
     """Supports direct rendering of prepared Unreal project on Deadline
     (`render` product must be created with flag for Farm publishing) OR
     Perforce assisted rendering.
@@ -46,15 +44,13 @@ class UnrealSubmitDeadline(
         job_info.Plugin = "UnrealEngine5"
         job_info.Name = instance.data["name"]
         job_info.Plugin = "UnrealEngine5"
-        job_info.UserName = context.data.get(
-            "deadlineUser", getpass.getuser())
-        job_info.CommandLineMode = False    # enables RPC
+        job_info.UserName = context.data.get("deadlineUser", getpass.getuser())
+        job_info.CommandLineMode = False  # enables RPC
 
         # adds deadline server url as $AYON_DEADLINE_URL
         dl_server_url = instance.data["deadline"]["url"]
         job_info_env = {"AYON_DEADLINE_URL": dl_server_url}
         job_info.EnvironmentKeyValue.update(job_info_env)
-
 
         # already collected explicit values for rendered Frames
         if (
@@ -64,7 +60,8 @@ class UnrealSubmitDeadline(
             # Deadline requires integers in frame range
             frame_range = "{}-{}".format(
                 int(round(instance.data["frameStart"])),
-                int(round(instance.data["frameEnd"])))
+                int(round(instance.data["frameEnd"])),
+            )
             job_info.Frames = frame_range
 
         return job_info
@@ -74,7 +71,7 @@ class UnrealSubmitDeadline(
 
         expected_file = Path(self._instance.data["expectedFiles"][0]).resolve()
         self._instance.data["outputDir"] = expected_file.parent.as_posix()
-        self._instance.context.data["version"] = 1  #TODO
+        self._instance.context.data["version"] = 1  # TODO
 
         file_name = self._instance.data["file_names"][0]
         render_path = (expected_file.parent / file_name).resolve()
@@ -84,7 +81,9 @@ class UnrealSubmitDeadline(
         deadline_plugin_info.Executable = self._get_executable()
         deadline_plugin_info.EngineVersion = self._instance.data["app_version"]
 
-        cmd_args = ['-execcmds="py from ayon_unreal.api import rendering_remote; rendering_remote.main()"']
+        cmd_args = [
+            '-execcmds="py from ayon_unreal.api import rendering_remote; rendering_remote.main()"'
+        ]
         if work_mrq := self._instance.data["work_mrq"]:
             manifest: str = Path(work_mrq).as_posix()
             cmd_args.append(f"-MRQManifest={manifest}")
@@ -95,12 +94,12 @@ class UnrealSubmitDeadline(
         return asdict(deadline_plugin_info)
 
     def from_published_scene(self, replace_in_path=True):
-        """ Do not overwrite expected files.
+        """Do not overwrite expected files.
 
-            Use published is set to True, so rendering will be triggered
-            from published scene (in 'publish' folder). Default implementation
-            of abstract class renames expected (eg. rendered) files accordingly
-            which is not needed here.
+        Use published is set to True, so rendering will be triggered
+        from published scene (in 'publish' folder). Default implementation
+        of abstract class renames expected (eg. rendered) files accordingly
+        which is not needed here.
         """
         return super().from_published_scene(False)
 
@@ -120,8 +119,7 @@ class UnrealSubmitDeadline(
         return batch_name
 
     def _get_executable(self):
-        """Returns path to Unreal executable.
-        """
+        """Returns path to Unreal executable."""
         # todo: get unreal version
         curr_ue = Path(sys.executable).resolve()
         ue_cmd_exe = curr_ue.parent / "UnrealEditor-Cmd.exe"
