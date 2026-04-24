@@ -122,7 +122,7 @@ class HoudiniSubmitDeadline(
                 default=cls.export_chunk_size,
                 decimals=0,
                 minimum=1,
-                maximum=1000
+                maximum=100000
             ),
             TextDef(
                 "export_group",
